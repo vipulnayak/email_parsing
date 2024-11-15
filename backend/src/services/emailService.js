@@ -1,6 +1,10 @@
 const Imap = require('imap');
-const simpleParser = require('mailparser').simpleParser;
+const { simpleParser } = require('mailparser');
 const pdfParse = require('pdf-parse');
+const tesseract = require('tesseract.js');
+const tf = require('@tensorflow/tfjs');
+const use = require('@tensorflow-models/universal-sentence-encoder');
+
 const Email = require('../models/email');
 
 class EmailService {
@@ -11,109 +15,87 @@ class EmailService {
       host: process.env.EMAIL_HOST,
       port: 993,
       tls: true,
-      tlsOptions: { rejectUnauthorized: false }
     });
+    this.model = null;
+  }
+
+  async loadModel() {
+    this.model = await use.load();
   }
 
   async fetchEmails() {
+    if (!this.model) {
+      await this.loadModel();
+    }
+
     return new Promise((resolve, reject) => {
       this.imap.once('ready', () => {
-        console.log('IMAP connection established');
         this.imap.openBox('INBOX', false, (err, box) => {
-          if (err) {
-            console.error('Error opening mailbox:', err);
-            reject(err);
-            return;
-          }
-          
-          console.log('Mailbox opened successfully');
-          
-          const fetchStream = this.imap.seq.fetch('1:*', {
-            bodies: ['HEADER', 'TEXT'],
-            struct: true
-          });
-
+          if (err) reject(err);
+          const fetchStream = this.imap.seq.fetch('1:*', { bodies: ['HEADER', 'TEXT'], struct: true });
           fetchStream.on('message', (msg) => {
-            msg.on('body', (stream, info) => {
-              simpleParser(stream, async (err, parsed) => {
-                if (err) {
-                  console.error('Error parsing email:', err);
-                  return;
-                }
-
-                try {
-                  const email = new Email({
-                    subject: parsed.subject,
-                    sender: parsed.from ? parsed.from.text : 'Unknown',
-                    body: parsed.text || parsed.html || 'No content',
-                    receivedDate: parsed.date,
-                  });
-
-                  if (parsed.attachments && parsed.attachments.length > 0) {
-                    for (const attachment of parsed.attachments) {
-                      if (attachment.contentType === 'application/pdf') {
-                        const pdfText = await this.extractTextFromPDF(attachment.content);
-                        email.ocrText = pdfText;
-                        email.isInvoice = await this.detectInvoice(pdfText);
-                      }
-                      email.attachments.push({
-                        filename: attachment.filename,
-                        content: attachment.content,
-                        contentType: attachment.contentType,
-                      });
+            msg.on('body', async (stream, info) => {
+              try {
+                const parsed = await simpleParser(stream);
+                const email = new Email({
+                  subject: parsed.subject,
+                  sender: parsed.from.text,
+                  body: parsed.text,
+                  receivedDate: parsed.date,
+                });
+                if (parsed.attachments && parsed.attachments.length > 0) {
+                  for (const attachment of parsed.attachments) {
+                    if (attachment.contentType === 'application/pdf') {
+                      const pdfText = await this.extractTextFromPDF(attachment.content);
+                      email.ocrText = pdfText;
+                      email.isInvoice = await this.detectInvoice(pdfText, attachment.filename);
                     }
+                    email.attachments.push({
+                      filename: attachment.filename,
+                      content: attachment.content,
+                      contentType: attachment.contentType,
+                    });
                   }
-
-                  await email.save();
-                  console.log('Email saved:', email.subject);
-                } catch (error) {
-                  console.error('Error processing email:', error);
                 }
-              });
+                await email.save();
+              } catch (error) {
+                console.error('Error processing email:', error);
+              }
             });
           });
-
-          fetchStream.once('error', (err) => {
-            console.error('Fetch error:', err);
-            reject(err);
-          });
-
+          fetchStream.once('error', (err) => reject(err));
           fetchStream.once('end', () => {
-            console.log('Done fetching all messages');
             this.imap.end();
             resolve();
           });
         });
       });
-
-      this.imap.once('error', (err) => {
-        console.error('IMAP connection error:', err);
-        reject(err);
-      });
-
-      this.imap.once('end', () => {
-        console.log('IMAP connection ended');
-      });
-
-      console.log('Attempting to connect to IMAP server');
+      this.imap.once('error', (err) => reject(err));
       this.imap.connect();
     });
   }
 
   async extractTextFromPDF(pdfBuffer) {
-    try {
-      const data = await pdfParse(pdfBuffer);
-      return data.text;
-    } catch (error) {
-      console.error('Error extracting text from PDF:', error);
-      return '';
-    }
+    const data = await pdfParse(pdfBuffer);
+    return data.text;
   }
 
-  async detectInvoice(text) {
-    const keywords = ['invoice', 'amount due', 'payment', 'bill'];
+  async detectInvoice(text, filename) {
+    const keywords = ['invoice', 'amount due', 'payment', 'bill', 'invoice number', 'invoice date'];
     const lowercaseText = text.toLowerCase();
-    return keywords.some(keyword => lowercaseText.includes(keyword));
+    const keywordMatch = keywords.some(keyword => lowercaseText.includes(keyword));
+    
+    if (keywordMatch || filename.toLowerCase().includes('invoice')) {
+      return true;
+    }
+
+    // Use the pre-trained model for classification
+    const embeddings = await this.model.embed([text]);
+    const invoiceEmbedding = await this.model.embed(['This is an invoice for payment']);
+    const similarity = tf.matMul(embeddings, invoiceEmbedding, false, true);
+    const score = await similarity.data();
+
+    return score[0] > 0.5; // Adjust this threshold as needed
   }
 }
 

@@ -4,6 +4,7 @@ const emailSchema = new mongoose.Schema({
   subject: String,
   sender: String,
   body: String,
+  receivedDate: Date,
   attachments: [{
     filename: String,
     content: Buffer,

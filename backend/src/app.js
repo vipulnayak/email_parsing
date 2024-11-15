@@ -2,6 +2,9 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const authRoutes = require('./routes/authRoutes');
+const emailRoutes = require('./routes/emailRoutes');
+const auth = require('./middleware/auth');
 
 dotenv.config();
 
@@ -15,11 +18,12 @@ mongoose.connect(process.env.MONGODB_URI, {
   useUnifiedTopology: true,
 })
 .then(() => console.log('Connected to MongoDB'))
-.catch((err) => console.error('MongoDB connection error:', err));
+.catch(err => console.error('MongoDB connection error:', err));
 
-const emailRoutes = require('./routes/emailRoutes');
-app.use('/api/emails', emailRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/emails', auth, emailRoutes);
 
+// Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send('Something broke!');
