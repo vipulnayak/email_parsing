@@ -1,4 +1,3 @@
-// src/components/EmailList.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchEmails, searchEmails } from '../services/api';
@@ -9,25 +8,44 @@ const EmailList = () => {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1); // New state for total pages
   const [selectedEmail, setSelectedEmail] = useState(null);
 
-  const fetchEmailsData = useCallback(async (page) => {
-    try {
-      setLoading(true);
-      const response = searchQuery
-        ? await searchEmails(searchQuery, page)
-        : await fetchEmails(page);
-      setEmails(response.data.emails);
-      setLoading(false);
-    } catch (err) {
-      setError('Failed to fetch emails');
-      setLoading(false);
-    }
-  }, [searchQuery]);
+  const fetchEmailsData = useCallback(
+    async (page) => {
+      try {
+        setLoading(true);
+        const response = searchQuery
+          ? await searchEmails(searchQuery, page)
+          : await fetchEmails(page);
+        setEmails(response.data.emails);
+        setTotalPages(response.data.totalPages); // Assuming API provides total pages
+        setLoading(false);
+      } catch (err) {
+        setError('Failed to fetch emails');
+        setLoading(false);
+      }
+    },
+    [searchQuery]
+  );
 
   useEffect(() => {
     fetchEmailsData(currentPage);
   }, [currentPage, fetchEmailsData]);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setCurrentPage(1);
+    fetchEmailsData(1);
+  };
+
+  const handlePageChange = (direction) => {
+    if (direction === 'prev' && currentPage > 1) {
+      setCurrentPage((prevPage) => prevPage - 1);
+    } else if (direction === 'next' && currentPage < totalPages) {
+      setCurrentPage((prevPage) => prevPage + 1);
+    }
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Invalid Date';
@@ -44,35 +62,29 @@ const EmailList = () => {
     }
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    setCurrentPage(1);
-    fetchEmailsData(1);
-  };
-
   return (
-    <motion.div 
-      initial={{ opacity: 0 }} 
-      animate={{ opacity: 1 }} 
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 p-8"
     >
-      <motion.div 
+      <motion.div
         initial={{ y: -50 }}
         animate={{ y: 0 }}
-        transition={{ type: "spring", stiffness: 300 }}
+        transition={{ type: 'spring', stiffness: 300 }}
         className="max-w-4xl mx-auto bg-white rounded-lg shadow-2xl overflow-hidden"
       >
         <div className="p-8">
-          <motion.h1 
+          <motion.h1
             initial={{ scale: 0.5 }}
             animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 500 }}
+            transition={{ type: 'spring', stiffness: 500 }}
             className="text-4xl font-bold text-center mb-8 text-gray-800"
           >
             Email Inbox
           </motion.h1>
-          
+
           <form onSubmit={handleSearch} className="mb-8">
             <div className="relative">
               <input
@@ -82,25 +94,34 @@ const EmailList = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-4 pr-10 py-2 rounded-full border-2 border-gray-300 focus:border-purple-500 focus:outline-none transition-colors duration-300"
               />
-              <button 
+              <button
                 type="submit"
                 className="absolute right-2 top-1/2 -translate-y-1/2 bg-purple-500 text-white p-2 rounded-full hover:bg-purple-600 transition-colors duration-300"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                    clipRule="evenodd"
+                  />
                 </svg>
               </button>
             </div>
           </form>
 
           {loading ? (
-            <motion.div 
+            <motion.div
               animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
               className="w-16 h-16 border-t-4 border-purple-500 border-solid rounded-full mx-auto"
             />
           ) : error ? (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="text-red-500 text-center p-4"
@@ -143,7 +164,7 @@ const EmailList = () => {
           )}
 
           {emails.length === 0 && !loading && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="p-8 text-center text-gray-500"
@@ -152,37 +173,28 @@ const EmailList = () => {
             </motion.div>
           )}
         </div>
-      </motion.div>
 
-      <AnimatePresence>
-        {selectedEmail && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
-            onClick={() => setSelectedEmail(null)}
+        {/* Pagination Controls */}
+        <div className="flex justify-between items-center px-8 py-4 border-t">
+          <button
+            onClick={() => handlePageChange('prev')}
+            disabled={currentPage === 1}
+            className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-50"
           >
-            <motion.div
-              initial={{ y: -50 }}
-              animate={{ y: 0 }}
-              className="bg-white rounded-lg shadow-2xl p-8 max-w-2xl w-full max-h-[80vh] overflow-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="mb-4">
-                <div className="text-xl font-bold text-gray-800 mb-2">{selectedEmail.subject}</div>
-                <div className="text-sm text-gray-600">From: {selectedEmail.sender || 'Unknown'}</div>
-                <div className="text-sm text-gray-600">
-                  Sent: {formatDate(selectedEmail.receivedDate)}
-                </div>
-              </div>
-              <div className="prose max-w-none">
-                <p className="whitespace-pre-wrap text-gray-700">{selectedEmail.body}</p>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            Previous
+          </button>
+          <span>
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => handlePageChange('next')}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      </motion.div>
     </motion.div>
   );
 };
