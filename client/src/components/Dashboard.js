@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { fetchEmails } from '../api/api';
 import EmailList from './EmailList';
+import InvoiceList from './InvoiceList';
 
 const Dashboard = () => {
   const [emails, setEmails] = useState([]);
@@ -10,16 +11,16 @@ const Dashboard = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('receivedDate:desc');
+  const [activeTab, setActiveTab] = useState('all'); // 'all' or 'invoices'
 
   useEffect(() => {
     loadEmails();
-  }, [page]);
+  }, [page, activeTab]);
 
   const loadEmails = async () => {
     try {
       setLoading(true);
-      const data = await fetchEmails(page, 20, search);
-      console.log('Fetched emails:', data.emails); // Debug log
+      const data = await fetchEmails(page, 20, search, sortBy, activeTab === 'invoices');
       setEmails(data.emails);
       setTotalPages(data.totalPages);
     } catch (err) {
@@ -30,20 +31,43 @@ const Dashboard = () => {
     }
   };
 
-  const handleRefresh = () => {
-    loadEmails();
-  };
-
   return (
     <div className="min-h-screen bg-light">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-secondary text-center mb-4">
-            Email Inbox
+            Email Invoice System
           </h1>
+          
+          {/* Tab Navigation */}
+          <div className="flex justify-center mb-6">
+            <div className="bg-white rounded-lg p-1 shadow-sm">
+              <button
+                onClick={() => setActiveTab('all')}
+                className={`px-6 py-2 rounded-md transition-colors ${
+                  activeTab === 'all'
+                    ? 'bg-primary text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                All Emails
+              </button>
+              <button
+                onClick={() => setActiveTab('invoices')}
+                className={`px-6 py-2 rounded-md transition-colors ${
+                  activeTab === 'invoices'
+                    ? 'bg-success text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                Invoices Only
+              </button>
+            </div>
+          </div>
+
           <div className="flex justify-between items-center">
             <button 
-              onClick={handleRefresh} 
+              onClick={loadEmails}
               className="btn btn-primary flex items-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -52,8 +76,10 @@ const Dashboard = () => {
               Refresh
             </button>
             <div className="flex gap-4 text-sm text-gray-600">
-              <span>Total Emails: {emails.length}</span>
-              <span>With Invoices: {emails.filter(email => email.hasInvoice).length}</span>
+              <span>Total: {emails.length}</span>
+              {activeTab === 'all' && (
+                <span>Invoices: {emails.filter(email => email.hasInvoice).length}</span>
+              )}
             </div>
           </div>
         </header>
@@ -74,14 +100,16 @@ const Dashboard = () => {
             <option value="receivedDate:desc">Date (Newest)</option>
             <option value="receivedDate:asc">Date (Oldest)</option>
             <option value="sender:asc">Sender (A-Z)</option>
-            <option value="hasInvoice:desc">Invoice Status</option>
+            {activeTab === 'invoices' && (
+              <option value="invoiceAmount:desc">Amount (High to Low)</option>
+            )}
           </select>
         </div>
 
         {loading ? (
           <div className="flex flex-col items-center justify-center h-64">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-gray-600">Loading emails...</p>
+            <p className="text-gray-600">Loading...</p>
           </div>
         ) : error ? (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
@@ -89,7 +117,12 @@ const Dashboard = () => {
           </div>
         ) : (
           <>
-            <EmailList emails={emails} />
+            {activeTab === 'invoices' ? (
+              <InvoiceList emails={emails.filter(email => email.hasInvoice)} />
+            ) : (
+              <EmailList emails={emails} />
+            )}
+            
             <div className="flex justify-center items-center gap-4 mt-8">
               <button 
                 onClick={() => setPage(p => Math.max(1, p - 1))}
