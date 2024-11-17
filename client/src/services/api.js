@@ -1,10 +1,14 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api'
+  baseURL: 'http://localhost:5000/api',
+  withCredentials: true,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
 
-// Request interceptor to add token to all requests
 api.interceptors.request.use(
   config => {
     const token = localStorage.getItem('token');
@@ -14,11 +18,11 @@ api.interceptors.request.use(
     return config;
   },
   error => {
+    console.error('Request error:', error);
     return Promise.reject(error);
   }
 );
 
-// Response interceptor to handle auth errors
 api.interceptors.response.use(
   response => response,
   error => {
@@ -27,15 +31,23 @@ api.interceptors.response.use(
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
-    return Promise.reject(error);
+    if (!error.response && error.message === 'Network Error') {
+      console.error('Network error - server might be down');
+      return Promise.reject({
+        message: 'Server is not responding. Please try again later.'
+      });
+    }
+    return Promise.reject(error.response?.data || error);
   }
 );
 
-export const fetchEmails = async ({ page, search, sort }) => {
+export const fetchEmails = async ({ page = 1, limit = 20, search = '', sort = 'receivedDate:desc' }) => {
   try {
+    console.log('Fetching emails...');
     const response = await api.get('/emails', {
-      params: { page, search, sort }
+      params: { page, limit, search, sort }
     });
+    console.log('Emails fetched:', response.data);
     return response.data;
   } catch (error) {
     console.error('Fetch emails error:', error);
@@ -49,7 +61,6 @@ export const login = async (credentials) => {
     if (response.data.token) {
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
-      // Set default auth header
       api.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
     }
     return response.data;
@@ -57,11 +68,6 @@ export const login = async (credentials) => {
     console.error('Login error:', error);
     throw error;
   }
-};
-
-export const register = async (userData) => {
-  const response = await api.post('/auth/register', userData);
-  return response.data;
 };
 
 export default api; 

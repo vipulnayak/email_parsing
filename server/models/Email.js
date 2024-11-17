@@ -11,19 +11,19 @@ const attachmentSchema = new mongoose.Schema({
 const emailSchema = new mongoose.Schema({
   subject: {
     type: String,
-    required: true
+    default: 'No Subject'
   },
   sender: {
     type: String,
-    required: true
+    default: 'Unknown Sender'
   },
   recipient: {
     type: String,
-    required: true
+    default: ''
   },
   body: {
     type: String,
-    required: true
+    default: ''
   },
   attachments: [attachmentSchema],
   receivedDate: {
@@ -35,15 +35,17 @@ const emailSchema = new mongoose.Schema({
     default: false
   },
   messageId: {
-    type: Number,
-    unique: true
+    type: String,
+    unique: true,
+    required: true
   }
 }, {
   timestamps: true
 });
 
-// Index for searching
+// Index for searching and sorting
 emailSchema.index({ subject: 'text', sender: 'text' });
 emailSchema.index({ messageId: 1 });
+emailSchema.index({ receivedDate: -1 });
 
 module.exports = mongoose.model('Email', emailSchema); 
