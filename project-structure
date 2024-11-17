@@ -1,0 +1,6 @@
+email-invoice-system/
+├── client/                 # React frontend
+├── server/                 # Node.js backend
+├── .gitignore
+├── README.md
+└── package.json 

@@ -1,0 +1,27 @@
+server/
+├── config/
+│   ├── database.js
+│   └── email.js
+├── controllers/
+│   ├── emailController.js
+│   └── invoiceController.js
+├── middleware/
+│   ├── auth.js
+│   └── errorHandler.js
+├── models/
+│   ├── Email.js
+│   └── Invoice.js
+├── routes/
+│   ├── emailRoutes.js
+│   └── invoiceRoutes.js
+├── services/
+│   ├── emailService.js
+│   ├── ocrService.js
+│   └── invoiceDetectionService.js
+├── utils/
+│   ├── logger.js
+│   └── validators.js
+├── tests/
+│   ├── email.test.js
+│   └── invoice.test.js
+└── server.js 

@@ -1,0 +1,12 @@
+{
+  "name": "email-invoice-system",
+  "version": "1.0.0",
+  "scripts": {
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm start",
+    "dev": "concurrently \"npm run server\" \"npm run client\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.1"
+  }
+} 

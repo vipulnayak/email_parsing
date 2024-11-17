@@ -1,0 +1,68 @@
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: #343a40;
+  color: white;
+}
+
+.navbar-brand a {
+  color: white;
+  text-decoration: none;
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+
+.navbar-menu {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-link {
+  color: white;
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.nav-link.active {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.latest-email {
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #adb5bd;
+  font-size: 0.9rem;
+}
+
+.user-email {
+  color: #adb5bd;
+}
+
+.logout-button {
+  padding: 0.5rem 1rem;
+  background-color: transparent;
+  border: 1px solid #dc3545;
+  color: #dc3545;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logout-button:hover {
+  background-color: #dc3545;
+  color: white;
+} 
