@@ -1,22 +1,23 @@
 import React from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
-import PrivateRoute from './components/PrivateRoute';
-import Dashboard from './pages/Dashboard';
-import InvoicePage from './pages/InvoicePage';
-import Login from './pages/Login';
-import Register from './pages/Register';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import Dashboard from './components/Dashboard';
+import Login from './components/Login';
+import { isAuthenticated } from './services/authService';
+import './App.css';
+
+const PrivateRoute = ({ children }) => {
+  return isAuthenticated() ? children : <Navigate to="/login" />;
+};
 
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <div className="app">
-          <Navbar />
+      <div className="App">
+        <Navbar />
+        <main className="main-content">
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
             <Route
               path="/"
               element={
@@ -25,17 +26,9 @@ function App() {
                 </PrivateRoute>
               }
             />
-            <Route
-              path="/invoices"
-              element={
-                <PrivateRoute>
-                  <InvoicePage />
-                </PrivateRoute>
-              }
-            />
           </Routes>
-        </div>
-      </AuthProvider>
+        </main>
+      </div>
     </Router>
   );
 }

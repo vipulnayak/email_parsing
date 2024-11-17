@@ -1,55 +1,47 @@
 import React from 'react';
-import EmailItem from './EmailItem';
-import '../styles/EmailList.css';
+import './EmailList.css';
 
-function EmailList({ emails }) {
+const EmailList = ({ emails }) => {
   if (!emails || emails.length === 0) {
     return <div className="no-emails">No emails found</div>;
   }
 
-  // Group emails by date
-  const groupedEmails = emails.reduce((groups, email) => {
-    const date = new Date(email.receivedDate);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    let dateString;
-    if (date.toDateString() === today.toDateString()) {
-      dateString = 'Today';
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      dateString = 'Yesterday';
-    } else {
-      dateString = date.toLocaleDateString(undefined, {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    }
-    
-    if (!groups[dateString]) {
-      groups[dateString] = [];
-    }
-    groups[dateString].push(email);
-    return groups;
-  }, {});
-
   return (
     <div className="email-list">
-      {Object.entries(groupedEmails).map(([date, dateEmails]) => (
-        <div key={date} className="email-group">
-          <div className="date-header">{date}</div>
-          {dateEmails.map(email => (
-            <EmailItem 
-              key={email._id} 
-              email={email}
-            />
-          ))}
+      {emails.map((email) => (
+        <div key={email._id || email.id} className={`email-card ${email.hasInvoice ? 'has-invoice' : 'no-invoice'}`}>
+          <div className="email-header">
+            <div className="email-meta">
+              <div className="email-sender">{email.sender}</div>
+              <div className="email-date">
+                {new Date(email.receivedDate || email.date).toLocaleString()}
+              </div>
+            </div>
+            <div className="invoice-badge">
+              {email.hasInvoice ? '📄 Invoice Found' : '❌ No Invoice'}
+            </div>
+          </div>
+          
+          <div className="email-subject">{email.subject}</div>
+          
+          {email.hasInvoice && email.invoiceDetails && (
+            <div className="invoice-details">
+              <div className="invoice-amount">
+                Amount: {email.invoiceDetails.amount || 'Not specified'}
+              </div>
+              <div className="invoice-due-date">
+                Due Date: {email.invoiceDetails.dueDate || 'Not specified'}
+              </div>
+            </div>
+          )}
+          
+          <div className="email-preview">
+            {email.body ? email.body.substring(0, 150) + '...' : 'No preview available'}
+          </div>
         </div>
       ))}
     </div>
   );
-}
+};
 
 export default EmailList; 

@@ -1,12 +1,11 @@
 import React from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import '../styles/Navbar.css';
+import { Link, useNavigate } from 'react-router-dom';
+import { isAuthenticated, logout } from '../services/authService';
+import './Navbar.css';
 
-function Navbar() {
-  const { user, logout } = useAuth();
+const Navbar = () => {
   const navigate = useNavigate();
-  const location = useLocation();
+  const authenticated = isAuthenticated();
 
   const handleLogout = () => {
     logout();
@@ -18,28 +17,20 @@ function Navbar() {
       <div className="navbar-brand">
         <Link to="/">Email Invoice System</Link>
       </div>
-      {user && (
-        <div className="navbar-menu">
-          <Link 
-            to="/" 
-            className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}
-          >
-            Emails
-          </Link>
-          <Link 
-            to="/invoices" 
-            className={`nav-link ${location.pathname === '/invoices' ? 'active' : ''}`}
-          >
-            Invoices
-          </Link>
-          <span className="user-email">{user.email}</span>
-          <button onClick={handleLogout} className="logout-button">
-            Logout
-          </button>
-        </div>
-      )}
+      <div className="navbar-links">
+        {authenticated ? (
+          <>
+            <Link to="/">Dashboard</Link>
+            <button onClick={handleLogout} className="logout-button">
+              Logout
+            </button>
+          </>
+        ) : (
+          <Link to="/login">Login</Link>
+        )}
+      </div>
     </nav>
   );
-}
+};
 
 export default Navbar; 

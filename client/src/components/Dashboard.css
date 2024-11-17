@@ -1,0 +1,112 @@
+.dashboard {
+  padding: 20px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.dashboard-header {
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.dashboard-header h1 {
+  color: #2c3e50;
+  margin-bottom: 12px;
+}
+
+.email-stats {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  color: #666;
+  font-size: 0.9em;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #666;
+}
+
+.loading-spinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #3498db;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-message {
+  color: #e74c3c;
+  text-align: center;
+  padding: 20px;
+  background-color: #fde8e8;
+  border-radius: 8px;
+  margin: 20px auto;
+  max-width: 400px;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.pagination-button {
+  padding: 8px 16px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.pagination-button:disabled {
+  background-color: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.pagination-button:hover:not(:disabled) {
+  background-color: #2980b9;
+}
+
+.page-info {
+  color: #666;
+}
+
+.dashboard-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.refresh-button {
+  padding: 8px 16px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+}
+
+.refresh-button:hover {
+  background-color: #2980b9;
+} 

@@ -5,39 +5,37 @@ const attachmentSchema = new mongoose.Schema({
   path: String,
   mimeType: String,
   isInvoice: { type: Boolean, default: false },
-  ocrText: String
+  invoiceDetails: {
+    amount: String,
+    dueDate: String
+  }
 });
 
 const emailSchema = new mongoose.Schema({
-  subject: {
-    type: String,
-    default: 'No Subject'
-  },
-  sender: {
-    type: String,
-    default: 'Unknown Sender'
-  },
-  recipient: {
-    type: String,
-    default: ''
-  },
-  body: {
-    type: String,
-    default: ''
-  },
-  attachments: [attachmentSchema],
-  receivedDate: {
-    type: Date,
-    default: Date.now
-  },
-  processed: {
-    type: Boolean,
-    default: false
-  },
   messageId: {
     type: String,
     unique: true,
     required: true
+  },
+  subject: String,
+  sender: String,
+  recipient: String,
+  body: String,
+  receivedDate: Date,
+  hasInvoice: Boolean,
+  invoiceDetails: {
+    amount: String,
+    dueDate: String
+  },
+  attachments: [attachmentSchema],
+  processed: {
+    type: Boolean,
+    default: false
+  },
+  invoiceSource: {
+    type: String,
+    enum: ['body', 'attachment', null],
+    default: null
   }
 }, {
   timestamps: true

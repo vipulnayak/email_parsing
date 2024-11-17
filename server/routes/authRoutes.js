@@ -43,41 +43,34 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
-    }
-    
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-    
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
+    // Check against environment variables
+    if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
+      // Create token
+      const token = jwt.sign(
+        { email: email },
+        process.env.JWT_SECRET,
+        { expiresIn: '24h' }
+      );
 
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      throw new Error('JWT_SECRET is not defined in environment variables');
+      // Send success response
+      res.json({
+        success: true,
+        token,
+        user: { email }
+      });
+    } else {
+      // Send error for invalid credentials
+      res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
     }
-    
-    const token = jwt.sign(
-      { userId: user._id }, 
-      secret,
-      { expiresIn: '24h' }
-    );
-    
-    res.json({ 
-      token, 
-      user: { 
-        email: user.email,
-        id: user._id 
-      } 
-    });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
   }
 });
 

@@ -2,9 +2,8 @@ const Imap = require('imap');
 const { simpleParser } = require('mailparser');
 const fs = require('fs').promises;
 const path = require('path');
+const pdfParse = require('pdf-parse');
 const Email = require('../models/Email');
-const { processAttachment } = require('./ocrService');
-const { detectInvoice } = require('./invoiceDetectionService');
 
 class EmailService {
   constructor() {
@@ -14,12 +13,10 @@ class EmailService {
       host: 'imap.gmail.com',
       port: 993,
       tls: true,
-      tlsOptions: {
+      tlsOptions: { 
         rejectUnauthorized: false,
         servername: 'imap.gmail.com'
-      },
-      authTimeout: 30000,
-      connTimeout: 30000
+      }
     });
   }
 
@@ -39,8 +36,63 @@ class EmailService {
     });
   }
 
+  async processAttachment(attachment, messageId) {
+    try {
+      const uploadsDir = path.join(__dirname, '../uploads');
+      await fs.mkdir(uploadsDir, { recursive: true });
+
+      const safeFilename = `${messageId}-${attachment.filename.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const filePath = path.join(uploadsDir, safeFilename);
+      await fs.writeFile(filePath, attachment.content);
+
+      let isInvoice = false;
+      let invoiceDetails = null;
+
+      // Check filename for invoice-related terms
+      isInvoice = /invoice|bill|payment|receipt/i.test(attachment.filename);
+
+      // If it's a PDF, try to extract text and check for invoice content
+      if (attachment.contentType === 'application/pdf') {
+        try {
+          const dataBuffer = await fs.readFile(filePath);
+          const pdfData = await pdfParse(dataBuffer);
+          const pdfText = pdfData.text.toLowerCase();
+          
+          // Check PDF content for invoice-related terms
+          if (/invoice|bill|payment|amount|due|total/i.test(pdfText)) {
+            isInvoice = true;
+            
+            // Try to extract amount and date
+            const amountMatch = pdfText.match(/[\$£€]\s*[\d,]+\.?\d*/);
+            const dateMatch = pdfText.match(/\d{1,2}[-/]\d{1,2}[-/]\d{2,4}/);
+            
+            invoiceDetails = {
+              amount: amountMatch ? amountMatch[0] : null,
+              dueDate: dateMatch ? dateMatch[0] : null
+            };
+          }
+        } catch (pdfError) {
+          console.error('Error processing PDF:', pdfError);
+        }
+      }
+      
+      return {
+        filename: attachment.filename,
+        path: filePath,
+        mimeType: attachment.contentType,
+        isInvoice,
+        invoiceDetails
+      };
+    } catch (error) {
+      console.error('Error processing attachment:', error);
+      return null;
+    }
+  }
+
   async fetchEmails() {
     try {
+      await this.connect();
+      
       await new Promise((resolve, reject) => {
         this.imap.openBox('INBOX', false, (err, box) => {
           if (err) reject(err);
@@ -48,43 +100,74 @@ class EmailService {
         });
       });
 
-      // Get recent emails first (last 7 days)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
       const results = await new Promise((resolve, reject) => {
-        this.imap.search([['SINCE', sevenDaysAgo]], (err, results) => {
+        this.imap.search(['ALL'], (err, results) => {
           if (err) reject(err);
-          else resolve(results.slice(-50)); // Get last 50 recent emails
+          else resolve(results.slice(-10));
         });
       });
 
-      if (!results.length) {
-        console.log('No new emails found');
-        return [];
-      }
+      console.log(`Processing ${results.length} emails`);
 
-      // Process emails in smaller batches
-      const batchSize = 5;
-      const batches = [];
-      for (let i = 0; i < results.length; i += batchSize) {
-        batches.push(results.slice(i, i + batchSize));
-      }
+      for (const messageId of results) {
+        try {
+          const rawEmail = await this.fetchSingleEmail(messageId);
+          const email = await simpleParser(rawEmail);
 
-      for (const batch of batches) {
-        await Promise.all(batch.map(async (result) => {
-          try {
-            const message = await this.fetchSingleEmail(result);
-            if (message && message.messageId) {
-              const existingEmail = await Email.findOne({ messageId: message.messageId });
-              if (!existingEmail) {
-                await Email.create(message);
+          // Process attachments and check for invoices
+          const attachments = [];
+          let hasInvoiceInAttachments = false;
+          if (email.attachments && email.attachments.length > 0) {
+            for (const attachment of email.attachments) {
+              const processedAttachment = await this.processAttachment(attachment, messageId);
+              if (processedAttachment) {
+                attachments.push(processedAttachment);
+                if (processedAttachment.isInvoice) {
+                  hasInvoiceInAttachments = true;
+                }
               }
             }
-          } catch (error) {
-            console.error(`Error processing email ${result}:`, error);
           }
-        }));
+
+          // Check email body for invoice-related content
+          const bodyText = email.text || email.html || '';
+          const hasInvoiceInBody = /invoice|bill|payment|amount|due|total/i.test(bodyText);
+
+          // Extract potential invoice details from body
+          let bodyInvoiceDetails = null;
+          if (hasInvoiceInBody) {
+            const amountMatch = bodyText.match(/[\$£€]\s*[\d,]+\.?\d*/);
+            const dateMatch = bodyText.match(/\d{1,2}[-/]\d{1,2}[-/]\d{2,4}/);
+            
+            if (amountMatch || dateMatch) {
+              bodyInvoiceDetails = {
+                amount: amountMatch ? amountMatch[0] : null,
+                dueDate: dateMatch ? dateMatch[0] : null
+              };
+            }
+          }
+
+          const emailData = {
+            messageId: email.messageId,
+            subject: email.subject || 'No Subject',
+            sender: email.from?.text || 'Unknown Sender',
+            recipient: email.to?.text || '',
+            body: bodyText,
+            receivedDate: email.date || new Date(),
+            attachments,
+            hasInvoice: hasInvoiceInBody || hasInvoiceInAttachments,
+            invoiceDetails: bodyInvoiceDetails || attachments.find(att => att.isInvoice)?.invoiceDetails || null,
+            invoiceSource: hasInvoiceInBody ? 'body' : (hasInvoiceInAttachments ? 'attachment' : null)
+          };
+
+          const existingEmail = await Email.findOne({ messageId: email.messageId });
+          if (!existingEmail) {
+            await Email.create(emailData);
+            console.log(`Saved email: ${emailData.subject} (Invoice: ${emailData.hasInvoice ? 'Yes' : 'No'})`);
+          }
+        } catch (error) {
+          console.error(`Error processing email ${messageId}:`, error);
+        }
       }
 
       this.imap.end();
@@ -98,35 +181,18 @@ class EmailService {
   async fetchSingleEmail(messageId) {
     return new Promise((resolve, reject) => {
       const fetch = this.imap.fetch(messageId, { bodies: '' });
-      
+      let buffer = '';
+
       fetch.on('message', (msg) => {
-        let buffer = '';
-        
         msg.on('body', (stream) => {
           stream.on('data', (chunk) => {
             buffer += chunk.toString('utf8');
           });
         });
-
-        msg.once('end', async () => {
-          try {
-            const parsed = await simpleParser(buffer);
-            resolve({
-              messageId: parsed.messageId,
-              subject: parsed.subject || 'No Subject',
-              sender: parsed.from?.text || 'Unknown Sender',
-              recipient: parsed.to?.text || '',
-              body: parsed.text || parsed.html || '',
-              receivedDate: parsed.date || new Date()
-            });
-          } catch (error) {
-            console.error('Error parsing email:', error);
-            resolve(null);
-          }
-        });
       });
 
       fetch.once('error', reject);
+      fetch.once('end', () => resolve(buffer));
     });
   }
 }

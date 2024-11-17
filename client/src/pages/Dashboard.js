@@ -10,29 +10,24 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [totalPages, setTotalPages] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState('receivedDate:desc');
   const navigate = useNavigate();
 
-  const loadEmails = useCallback(async (pageNum = 1, append = false) => {
+  const loadEmails = useCallback(async (pageNum = 1) => {
     try {
       setLoading(true);
-      const response = await fetchEmails({
-        page: pageNum,
-        limit: 10,
-        search: searchQuery,
-        sort: sortOption
+      const response = await fetchEmails({ 
+        page: pageNum, 
+        limit: 20,
+        search: searchQuery, 
+        sort: sortOption 
       });
-
+      
       if (response.success && response.data) {
-        setEmails(prevEmails => {
-          if (append) {
-            return [...prevEmails, ...response.data.emails];
-          }
-          return response.data.emails;
-        });
-        setHasMore(response.data.hasMore);
+        setEmails(response.data.emails);
+        setTotalPages(response.data.totalPages);
       }
       setError('');
     } catch (error) {
@@ -55,7 +50,7 @@ function Dashboard() {
       return;
     }
     setPage(1);
-    loadEmails(1, false);
+    loadEmails(1);
   }, [searchQuery, sortOption, loadEmails, navigate]);
 
   // Handle search
@@ -70,40 +65,50 @@ function Dashboard() {
     setPage(1);
   };
 
-  // Load more
-  const handleLoadMore = async () => {
-    if (!loading && hasMore) {
-      const nextPage = page + 1;
-      setPage(nextPage);
-      await loadEmails(nextPage, true);
-    }
+  // Handle pagination
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    loadEmails(newPage);
   };
 
   return (
     <div className="dashboard">
       <div className="dashboard-header">
-        <SearchBar
+        <SearchBar 
           onSearch={handleSearch}
           onSort={handleSort}
         />
       </div>
 
       {error && <div className="error-message">{error}</div>}
-
-      <EmailList emails={emails} />
-
-      {hasMore && (
-        <div className="load-more">
-          <button
-            onClick={handleLoadMore}
-            disabled={loading}
-          >
-            {loading ? 'Loading...' : 'Load More'}
-          </button>
-        </div>
+      
+      {loading ? (
+        <div className="loading-indicator">Loading emails...</div>
+      ) : (
+        <>
+          <EmailList emails={emails} />
+          
+          <div className="pagination">
+            <button 
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page === 1 || loading}
+            >
+              Previous
+            </button>
+            
+            <span className="page-info">
+              Page {page} of {totalPages}
+            </span>
+            
+            <button 
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page >= totalPages || loading}
+            >
+              Next
+            </button>
+          </div>
+        </>
       )}
-
-      {loading && <div className="loading-indicator">Loading...</div>}
     </div>
   );
 }

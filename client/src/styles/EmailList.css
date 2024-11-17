@@ -1,8 +1,13 @@
 .email-list {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.email-container {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
-  padding: 1rem;
+  gap: 15px;
 }
 
 .email-group {
