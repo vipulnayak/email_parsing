@@ -1,65 +1,57 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const User = require('../models/User');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
-// Register route
-router.post('/register', async (req, res) => {
-  try {
-    console.log('Register attempt:', req.body);
-    const { email, password } = req.body;
-    
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
-    }
+// Email verification token storage (in production, use Redis or database)
+const verificationTokens = new Map();
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ email, password: hashedPassword });
-    await user.save();
-    
-    // Create token
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET || 'fallback-secret-key');
-    
-    res.status(201).json({ 
-      message: 'User created successfully',
-      token,
-      user: { email: user.email }
-    });
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: error.message });
+// Configure email transporter
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST,
+  port: process.env.EMAIL_PORT,
+  secure: true,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD
   }
 });
 
-// Login route
+// Login route with email verification
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    // Check against environment variables
     if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
-      // Create token
-      const token = jwt.sign(
-        { email: email },
-        process.env.JWT_SECRET,
-        { expiresIn: '24h' }
-      );
+      // Generate verification token
+      const verificationToken = crypto.randomBytes(32).toString('hex');
+      verificationTokens.set(email, {
+        token: verificationToken,
+        timestamp: Date.now()
+      });
 
-      // Send success response
+      // Send verification email
+      const verificationLink = `http://localhost:3000/verify?token=${verificationToken}&email=${email}`;
+      
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Login Verification',
+        html: `
+          <h2>Verify Your Login</h2>
+          <p>Click the link below to complete your login:</p>
+          <a href="${verificationLink}">${verificationLink}</a>
+          <p>This link will expire in 10 minutes.</p>
+        `
+      });
+
       res.json({
         success: true,
-        token,
-        user: { email }
+        message: 'Verification email sent',
+        requiresVerification: true
       });
     } else {
-      // Send error for invalid credentials
       res.status(401).json({
         success: false,
         message: 'Invalid credentials'
@@ -71,6 +63,40 @@ router.post('/login', async (req, res) => {
       success: false,
       message: 'Server error'
     });
+  }
+});
+
+// Verify email token
+router.post('/verify', (req, res) => {
+  const { token, email } = req.body;
+  const storedData = verificationTokens.get(email);
+
+  if (!storedData) {
+    return res.status(400).json({ message: 'Invalid verification request' });
+  }
+
+  if (Date.now() - storedData.timestamp > 600000) { // 10 minutes expiry
+    verificationTokens.delete(email);
+    return res.status(400).json({ message: 'Verification link expired' });
+  }
+
+  if (token === storedData.token) {
+    verificationTokens.delete(email);
+    
+    // Generate JWT token
+    const jwtToken = jwt.sign(
+      { email },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      success: true,
+      token: jwtToken,
+      user: { email }
+    });
+  } else {
+    res.status(400).json({ message: 'Invalid verification token' });
   }
 });
 

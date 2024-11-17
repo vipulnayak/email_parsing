@@ -16,6 +16,14 @@ export const login = async (email, password) => {
     }
 
     const data = await response.json();
+    
+    if (data.requiresVerification) {
+      return {
+        requiresVerification: true,
+        message: data.message
+      };
+    }
+
     if (data.token) {
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
@@ -23,6 +31,33 @@ export const login = async (email, password) => {
     return data;
   } catch (error) {
     console.error('Login error:', error);
+    throw error;
+  }
+};
+
+export const verifyEmail = async (token, email) => {
+  try {
+    const response = await fetch(`${API_URL}/auth/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ token, email }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Verification failed');
+    }
+
+    const data = await response.json();
+    if (data.token) {
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+    }
+    return data;
+  } catch (error) {
+    console.error('Verification error:', error);
     throw error;
   }
 };

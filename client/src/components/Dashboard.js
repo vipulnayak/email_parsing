@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { fetchEmails } from '../api/api';
 import EmailList from './EmailList';
-import './Dashboard.css';
 
 const Dashboard = () => {
   const [emails, setEmails] = useState([]);
@@ -9,6 +8,8 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('receivedDate:desc');
 
   useEffect(() => {
     loadEmails();
@@ -17,7 +18,7 @@ const Dashboard = () => {
   const loadEmails = async () => {
     try {
       setLoading(true);
-      const data = await fetchEmails(page);
+      const data = await fetchEmails(page, 20, search);
       console.log('Fetched emails:', data.emails); // Debug log
       setEmails(data.emails);
       setTotalPages(data.totalPages);
@@ -33,52 +34,83 @@ const Dashboard = () => {
     loadEmails();
   };
 
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <div>Loading emails...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return <div className="error-message">{error}</div>;
-  }
-
   return (
-    <div className="dashboard">
-      <header className="dashboard-header">
-        <h1>Email Inbox</h1>
-        <div className="dashboard-actions">
-          <button onClick={handleRefresh} className="refresh-button">
-            🔄 Refresh
-          </button>
-          <div className="email-stats">
-            <span>Total Emails: {emails.length}</span>
-            <span>With Invoices: {emails.filter(email => email.hasInvoice).length}</span>
+    <div className="min-h-screen bg-light">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-secondary text-center mb-4">
+            Email Inbox
+          </h1>
+          <div className="flex justify-between items-center">
+            <button 
+              onClick={handleRefresh} 
+              className="btn btn-primary flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </button>
+            <div className="flex gap-4 text-sm text-gray-600">
+              <span>Total Emails: {emails.length}</span>
+              <span>With Invoices: {emails.filter(email => email.hasInvoice).length}</span>
+            </div>
           </div>
+        </header>
+
+        <div className="mb-6 flex gap-4">
+          <input
+            type="text"
+            placeholder="Search emails..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="input flex-1"
+          />
+          <select 
+            value={sortBy} 
+            onChange={(e) => setSortBy(e.target.value)}
+            className="input w-48"
+          >
+            <option value="receivedDate:desc">Date (Newest)</option>
+            <option value="receivedDate:asc">Date (Oldest)</option>
+            <option value="sender:asc">Sender (A-Z)</option>
+            <option value="hasInvoice:desc">Invoice Status</option>
+          </select>
         </div>
-      </header>
 
-      <EmailList emails={emails} />
-
-      <div className="pagination">
-        <button 
-          onClick={() => setPage(p => Math.max(1, p - 1))}
-          disabled={page === 1}
-          className="pagination-button"
-        >
-          Previous
-        </button>
-        <span className="page-info">Page {page} of {totalPages}</span>
-        <button 
-          onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-          disabled={page === totalPages}
-          className="pagination-button"
-        >
-          Next
-        </button>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-64">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-gray-600">Loading emails...</p>
+          </div>
+        ) : error ? (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            {error}
+          </div>
+        ) : (
+          <>
+            <EmailList emails={emails} />
+            <div className="flex justify-center items-center gap-4 mt-8">
+              <button 
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <span className="text-gray-600">
+                Page {page} of {totalPages}
+              </span>
+              <button 
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

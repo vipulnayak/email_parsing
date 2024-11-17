@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../services/authService';
-import './Login.css';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -20,30 +19,44 @@ const Login = () => {
   };
 
   return (
-    <div className="login-container">
-      <div className="login-box">
-        <h2>Login</h2>
-        {error && <div className="error-message">{error}</div>}
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Email:</label>
+    <div className="min-h-screen bg-light flex items-center justify-center px-4">
+      <div className="card max-w-md w-full">
+        <h2 className="text-2xl font-bold text-secondary text-center mb-6">
+          Login
+        </h2>
+        
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+        )}
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-gray-700 mb-2">Email:</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              className="input"
               required
             />
           </div>
-          <div className="form-group">
-            <label>Password:</label>
+          
+          <div>
+            <label className="block text-gray-700 mb-2">Password:</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              className="input"
               required
             />
           </div>
-          <button type="submit" className="login-button">Login</button>
+          
+          <button type="submit" className="btn btn-primary w-full">
+            Login
+          </button>
         </form>
       </div>
     </div>

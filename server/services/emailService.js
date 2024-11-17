@@ -2,8 +2,9 @@ const Imap = require('imap');
 const { simpleParser } = require('mailparser');
 const fs = require('fs').promises;
 const path = require('path');
-const pdfParse = require('pdf-parse');
+const PDFParser = require('pdf2json');
 const Email = require('../models/Email');
+const nodemailer = require('nodemailer');
 
 class EmailService {
   constructor() {
@@ -16,6 +17,14 @@ class EmailService {
       tlsOptions: { 
         rejectUnauthorized: false,
         servername: 'imap.gmail.com'
+      }
+    });
+
+    this.transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
       }
     });
   }
@@ -51,24 +60,46 @@ class EmailService {
       // Check filename for invoice-related terms
       isInvoice = /invoice|bill|payment|receipt/i.test(attachment.filename);
 
-      // If it's a PDF, try to extract text and check for invoice content
       if (attachment.contentType === 'application/pdf') {
         try {
-          const dataBuffer = await fs.readFile(filePath);
-          const pdfData = await pdfParse(dataBuffer);
-          const pdfText = pdfData.text.toLowerCase();
+          const pdfParser = new PDFParser();
           
-          // Check PDF content for invoice-related terms
-          if (/invoice|bill|payment|amount|due|total/i.test(pdfText)) {
+          const pdfText = await new Promise((resolve, reject) => {
+            pdfParser.on('pdfParser_dataReady', (pdfData) => {
+              const text = pdfParser.getRawTextContent().toLowerCase();
+              resolve(text);
+            });
+            
+            pdfParser.on('pdfParser_dataError', reject);
+            pdfParser.loadPDF(filePath);
+          });
+
+          // Enhanced invoice detection
+          const invoiceKeywords = [
+            'invoice', 'bill', 'payment', 'amount due', 'total',
+            'invoice number', 'invoice date', 'due date'
+          ];
+
+          const hasInvoiceKeywords = invoiceKeywords.some(keyword => 
+            pdfText.includes(keyword)
+          );
+
+          if (hasInvoiceKeywords) {
             isInvoice = true;
             
-            // Try to extract amount and date
-            const amountMatch = pdfText.match(/[\$£€]\s*[\d,]+\.?\d*/);
-            const dateMatch = pdfText.match(/\d{1,2}[-/]\d{1,2}[-/]\d{2,4}/);
+            // Enhanced extraction patterns
+            const amountPattern = /(?:total|amount|due|balance).*?[\$£€]?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i;
+            const datePattern = /(?:due|date).*?(\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4})/i;
+            const invoiceNumberPattern = /(?:invoice|bill|ref).*?(?:#|no|number)?[:\s]*([A-Z0-9-]{4,})/i;
+
+            const amountMatch = pdfText.match(amountPattern);
+            const dateMatch = pdfText.match(datePattern);
+            const invoiceNumberMatch = pdfText.match(invoiceNumberPattern);
             
             invoiceDetails = {
-              amount: amountMatch ? amountMatch[0] : null,
-              dueDate: dateMatch ? dateMatch[0] : null
+              amount: amountMatch ? amountMatch[1] : null,
+              dueDate: dateMatch ? dateMatch[1] : null,
+              invoiceNumber: invoiceNumberMatch ? invoiceNumberMatch[1] : null
             };
           }
         } catch (pdfError) {
@@ -164,6 +195,21 @@ class EmailService {
           if (!existingEmail) {
             await Email.create(emailData);
             console.log(`Saved email: ${emailData.subject} (Invoice: ${emailData.hasInvoice ? 'Yes' : 'No'})`);
+
+            if (emailData.hasInvoice) {
+              await this.transporter.sendMail({
+                from: process.env.EMAIL_USER,
+                to: process.env.ADMIN_EMAIL,
+                subject: 'New Invoice Detected',
+                html: `
+                  <h2>New Invoice Found</h2>
+                  <p>Email: ${emailData.subject}</p>
+                  <p>From: ${emailData.sender}</p>
+                  <p>Amount: ${emailData.invoiceDetails?.amount || 'Not specified'}</p>
+                  <p>Due Date: ${emailData.invoiceDetails?.dueDate || 'Not specified'}</p>
+                `
+              });
+            }
           }
         } catch (error) {
           console.error(`Error processing email ${messageId}:`, error);
