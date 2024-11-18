@@ -3,13 +3,27 @@ const Email = require('../models/Email');
 
 const emailService = new EmailService();
 
+exports.fetchNewEmails = async (req, res) => {
+  try {
+    console.log('Starting email fetch...');
+    const newEmailsCount = await emailService.fetchEmails();
+    console.log('Email fetch completed');
+    res.json({ 
+      message: 'Emails fetched successfully',
+      newEmails: newEmailsCount
+    });
+  } catch (error) {
+    console.error('Error fetching emails:', error);
+    res.status(500).json({ error: 'Failed to fetch emails' });
+  }
+};
+
 exports.getEmails = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const search = req.query.search || '';
     const sort = req.query.sort || 'receivedDate:desc';
-    const showOnlyInvoices = req.query.invoicesOnly === 'true';
 
     const [sortField, sortOrder] = sort.split(':');
     const sortOptions = { [sortField]: sortOrder === 'desc' ? -1 : 1 };
@@ -22,57 +36,23 @@ exports.getEmails = async (req, res) => {
       ];
     }
 
-    if (showOnlyInvoices) {
-      query.hasInvoice = true;
-    }
-
     const emails = await Email.find(query)
-      .select({
-        subject: 1,
-        sender: 1,
-        receivedDate: 1,
-        hasInvoice: 1,
-        invoiceDetails: 1,
-        invoiceSource: 1
-      })
       .sort(sortOptions)
       .skip((page - 1) * limit)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
     const total = await Email.countDocuments(query);
 
-    const processedEmails = emails.map(email => ({
-      id: email._id,
-      subject: email.subject,
-      sender: email.sender,
-      date: email.receivedDate,
-      hasInvoice: email.hasInvoice,
-      invoiceDetails: email.hasInvoice ? {
-        amount: email.invoiceDetails?.amount || 'Not specified',
-        dueDate: email.invoiceDetails?.dueDate || 'Not specified',
-        source: email.invoiceSource || 'Unknown'
-      } : null
-    }));
-
     res.json({
-      emails: processedEmails,
+      emails,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
       totalEmails: total
     });
   } catch (error) {
-    console.error('Error fetching emails:', error);
-    res.status(500).json({ error: 'Failed to fetch emails' });
-  }
-};
-
-exports.fetchNewEmails = async (req, res) => {
-  try {
-    await emailService.fetchEmails();
-    res.json({ message: 'Emails fetched successfully' });
-  } catch (error) {
-    console.error('Error fetching new emails:', error);
-    res.status(500).json({ error: 'Failed to fetch new emails' });
+    console.error('Error getting emails:', error);
+    res.status(500).json({ error: 'Failed to get emails' });
   }
 };
 

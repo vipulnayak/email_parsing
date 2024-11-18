@@ -1,22 +1,15 @@
 const errorHandler = (err, req, res, next) => {
-  console.error(err.stack);
-
-  if (err.name === 'ValidationError') {
-    return res.status(400).json({
-      error: 'Validation Error',
-      details: err.message
-    });
-  }
-
-  if (err.name === 'UnauthorizedError') {
-    return res.status(401).json({
-      error: 'Authentication Error',
-      details: 'Invalid or expired token'
+  console.error('Error:', err);
+  
+  if (err.name === 'IMAPError') {
+    return res.status(503).json({
+      error: 'Email service unavailable',
+      message: err.message
     });
   }
 
   res.status(500).json({
-    error: 'Internal Server Error',
+    error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
   });
 };
