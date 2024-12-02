@@ -1,0 +1,34 @@
+.email-preview-card {
+  margin: 16px;
+}
+
+.preview-item {
+  position: relative;
+  padding: 8px;
+}
+
+.pdf-preview-image {
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.preview-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.preview-filename {
+  display: block;
+  margin-top: 8px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+} 

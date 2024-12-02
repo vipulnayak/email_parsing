@@ -1,32 +1,56 @@
 const mongoose = require('mongoose');
 
-const invoiceSchema = new mongoose.Schema({
+// Flexible schema to handle various types of documents (invoice, receipt, bill, etc.)
+const documentSchema = new mongoose.Schema({
   emailId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Email',
     required: true
   },
-  invoiceNumber: String,
-  amount: Number,
-  currency: String,
-  dueDate: Date,
-  vendor: String,
+  documentType: {
+    type: String,
+    enum: ['invoice', 'receipt', 'bill', 'statement', 'payment', 'quotation', 'purchase order', 'delivery note', 'other'], // allows for different document types
+    required: true
+  },
+  documentNumber: String,  // Could be invoice number, receipt number, etc.
+  amount: {
+    type: Number,
+    required: true
+  },
+  currency: {
+    type: String,
+    required: true
+  },
+  dueDate: Date,  // Optional, as not all documents may have a due date (e.g., receipts)
+  issuedDate: {
+    type: Date,
+    required: true
+  },
+  vendor: {
+    name: String,
+    address: String,
+    contact: String
+  },
   status: {
     type: String,
-    enum: ['pending', 'processed', 'error'],
+    enum: ['pending', 'processed', 'paid', 'error'],
     default: 'pending'
   },
   extractedData: {
     type: Map,
-    of: String
+    of: mongoose.Schema.Types.Mixed // Stores any kind of data extracted from the document (product details, taxes, dates, etc.)
   },
-  originalFile: {
-    filename: String,
-    path: String
-  },
-  processedAt: Date
+  originalFiles: [
+    {
+      filename: String,
+      path: String,
+      fileType: String // Tracks the file type (pdf, jpg, etc.)
+    }
+  ],
+  processedAt: Date, // Date when the document was processed or verified
 }, {
-  timestamps: true
+  timestamps: true // Automatically adds createdAt and updatedAt fields
 });
 
-module.exports = mongoose.model('Invoice', invoiceSchema); 
+// Create a model based on the schema
+module.exports = mongoose.model('Document', documentSchema);
