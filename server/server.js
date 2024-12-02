@@ -9,7 +9,7 @@ const app = express();
 
 // CORS configuration
 const corsOptions = {
-  origin: 'http://localhost:3000', // Your React app's URL
+  origin: 'http://emailparsing.netlify.app', // Your React app's URL
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
